@@ -2,7 +2,8 @@
 #include <unistd.h>
 
 void wait_for_gdb_to_attach() {
-  while (1) {
+  int is_waiting = 1;
+  while (is_waiting) {
     sleep(1); // sleep for 1 second
   }
 }

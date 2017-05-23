@@ -1,4 +1,4 @@
-# How to debug CGI applications with GDB
+# How to debug CGI applications written in C/C++ with GDB
 
 As you probably already know, CGI, Common Gateway Interface, is a standard
 protocol for web servers to execute programs by passing HTTP request data into
@@ -7,13 +7,13 @@ program's standard output as the HTTP response. Unless FastCGI or SCGI is used,
 the executable program would be started as a separate process by the web server
 for each request and torn down at the end.
 
-GDB is commonly used to debug C and C++ programs and it supports attaching to
-running processes. As the CGI process is short-lived, you need to delay its
-exit to have enough time to attach the debugger while the process is still
-running. For casual debugging the easiest option is to simply use plain
-`sleep()` in an endless loop at the breakpoint location and exit the loop with
-the debugger once it is attached to the program (there are other, more
-complicated options that I don't cover here).
+GDB, the GNU Debugger, is commonly used to debug C and C++ programs and it
+supports attaching to running processes. As the CGI process is short-lived, you
+need to delay its exit to have enough time to attach the debugger while the
+process is still running. For casual debugging the easiest option is to simply
+use `sleep()` in an endless loop at the breakpoint location and exit the loop
+with the debugger once it is attached to the program. There are other, more
+complicated options that I don't cover here.
 
 The following example assumes Ubuntu Linux and Apache.
 
@@ -31,6 +31,8 @@ Then configure a CGI-enabled virtual host:
         CustomLog       /var/log/apache2/cgi-test.access.log combined
         ErrorLog        /var/log/apache2/cgi-test.error.log
 
+        TimeOut         600
+
         ScriptAlias /cgi-bin/ /var/www/cgi-test/cgi-bin/
 
         <Directory "/var/www/cgi-test/cgi-bin">
@@ -41,6 +43,10 @@ Then configure a CGI-enabled virtual host:
         </Directory>
     </VirtualHost>
 
+Note the `TimeOut` parameter - it reserves 10 minutes for debugging instead of
+the default one minute. After timeout is reached, Apache kills the CGI process
+and returns the *504 Gateway timeout* response.
+
 Finally, restart Apache:
 
     sudo service apache2 restart
@@ -49,7 +55,7 @@ Finally, restart Apache:
 
 Install build tools:
 
-    sudo apt-get install build-essentials cmake gdb
+    sudo apt-get install build-essentials cmake cgdb
 
 Compile the application:
 
@@ -69,25 +75,43 @@ loop and can now be attached to with GDB.
 
 ## Attaching the debugger and debugging
 
-You can find the process ID with `pgrep`:
+It is recommended to use CGDB instead of plain GDB. CGDB is a curses frontend
+to GDB that provides the familiar GDB text interface with a split screen
+showing the source as it executes.
+
+You can find the CGI process ID with `pgrep`:
 
     pgrep -l cgi-debugging
 
-Attach GDB to the process (the process is paused when debugger attaches):
+Attach CGDB to the process (the process is paused when debugger attaches):
 
-    sudo -u gdb cgi-debugging-example $(pgrep cgi-debugging)
+    sudo cgdb cgi-debugging-example $(pgrep cgi-debugging)
 
-Exit the infinite loop by typing `return` until you reach `main`:
+Next you need to exit the infinite loop and `wait_for_gdb_to_attach()` function
+to reach the "breakpoint" in your application. The trick here is to step out of
+`sleep()` until you reach `wait_for_gdb_to_attach()` and set the value of the
+variable `is_waiting` with the debugger so that `while (is_waiting)` exits:
 
-    (gdb) return
-    Make __sleep return now? (y or n) y
-    #0  0x000000000040086b in wait_for_gdb_to_attach ()
-    (gdb) return
-    Make selected stack frame return now? (y or n) y
-    #0  0x000000000040087b in main ()
+    (gdb) finish
+    Run till exit from 0x8a0920 __nanosleep_nocancel () at syscall-template.S:81
+    0x8a07d4 in __sleep (seconds=0) at sleep.c:137
+    (gdb) finish
+    Run till exit from 0x8a07d4 in __sleep (seconds=0) at sleep.c:137
+    wait_for_gdb_to_attach () at cgi-debugging-example.c:6
+    Value returned is $1 = 0
+    (gdb) set is_waiting = 0 # <- to exit while
+    (gdb) finish
+    Run till exit from wait_for_gdb_to_attach () cgi-debugging-example.c:6
+    main () at cgi-debugging-example.c:13
 
-Now you can continue debugging the program or let it run to completion:
+You could also force return with `return`, but that may mess up application
+state and cause crashes. Or you could use `next` to step out of functions
+instead of `finish`.
 
+Once you are out of `wait_for_gdb_to_attach()`, you can continue debugging the
+program or let it run to completion:
+
+    (gdb) next
     (gdb) continue
     Continuing.
     [Inferior 1 (process 1005) exited normally]
