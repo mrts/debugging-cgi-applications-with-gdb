@@ -4,7 +4,7 @@ As you probably already know, CGI, Common Gateway Interface, is a standard
 protocol for web servers to execute programs by passing HTTP request data into
 the program via standard input and environment variables, and returning the
 program's standard output as the HTTP response. Unless FastCGI or SCGI is used,
-the executable program would be started as a separate process by the web server
+the executable program is started as a separate process by the web server
 for each request and torn down at the end.
 
 GDB, the GNU Debugger, is commonly used to debug C and C++ programs and it
@@ -57,8 +57,10 @@ Install build tools:
 
     sudo apt-get install build-essentials cmake cgdb
 
-Compile the application:
+Clone and compile the application:
 
+    git clone https://github.com/mrts/debugging-cgi-applications-with-gdb.git
+    cd debugging-cgi-applications-with-gdb
     cmake .
     make
 
