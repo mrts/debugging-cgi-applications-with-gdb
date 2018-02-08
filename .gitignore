@@ -1,1 +1,7 @@
 *.swp
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+Makefile
+cgi-debugging-example
+restclient-cpp/

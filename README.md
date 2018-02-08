@@ -47,6 +47,9 @@ Note the `TimeOut` parameter - it reserves 10 minutes for debugging instead of
 the default one minute. After timeout is reached, Apache kills the CGI process
 and returns the *504 Gateway timeout* response.
 
+Alternatively, you can use the default CGI configuration that serves scripts
+from `/usr/lib/cgi-bin` with `a2enconf serve-cgi-bin` (see below).
+
 Finally, restart Apache:
 
     sudo service apache2 restart
@@ -55,7 +58,19 @@ Finally, restart Apache:
 
 Install build tools:
 
-    sudo apt-get install build-essentials cmake cgdb
+    sudo apt install build-essentials cmake cgdb
+
+Install `restclient-cpp` dependencies:
+
+    sudo apt install libcurl4-openssl-dev autoconf libtool
+
+Clone and build `restclient-cpp`:
+
+    git clone https://github.com/mrtazz/restclient-cpp.git
+    cd restclient-cpp/
+    ./autogen.sh
+    ./configure
+    make
 
 Clone and compile the application:
 
@@ -64,13 +79,20 @@ Clone and compile the application:
     cmake .
     make
 
+Install Apache:
+
+    sudo apt install apache2
+    sudo a2enmod cgi
+    sudo a2enconf serve-cgi-bin
+    sudo service apache2 restart
+
 Copy the application to `cgi-bin` directory:
 
-    cp cgi-debugging-example /var/www/cgi-test/cgi-bin
+    sudo cp cgi-debugging-example /usr/lib/cgi-bin
 
 Open the URL that runs the application in browser:
 
-<http://cgi-test.example.com/cgi-bin/cgi-debugging-example>
+<http://localhost/cgi-bin/cgi-debugging-example>
 
 The browser will show the loading icon as the application enters the endless
 loop and can now be attached to with GDB.
